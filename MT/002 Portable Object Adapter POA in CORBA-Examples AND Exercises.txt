@@ -1,0 +1,143 @@
+Portable Object Adapter (POA) in CORBA: Examples & Exercises  
+
+ 1. What is the Portable Object Adapter (POA)?  
+The Portable Object Adapter (POA) is a CORBA component that manages object implementations and request dispatching. It allows developers to control object activation, request handling, and object lifespan.  
+
+---
+
+ 2. POA Features & Lifecycle
+ Key Features of POA:
+- Persistent and transient objects (controls object lifecycle).  
+- Multi-threading and request processing policies (handles multiple requests efficiently).  
+- Object Activation Policies (implicit vs. explicit activation).  
+- Servant Managers (allows lazy object creation).  
+
+ POA Lifecycle in CORBA:
+1. Create a POA (from the ORB).  
+2. Create a servant (implementation of the CORBA object).  
+3. Activate the servant (bind to an object reference).  
+4. Process requests (handle client calls).  
+5. Deactivate servant (cleanup).  
+
+---
+
+ 3. Example: Implementing POA in CORBA
+Let's implement a simple CORBA server-client application using POA.
+
+ Step 1: Define the IDL (Interface Definition Language)
+```idl
+module Banking {
+    interface Account {
+        float getBalance();
+    };
+};
+```
+This defines a `Banking::Account` interface that provides a `getBalance()` method.
+
+---
+
+ Step 2: Implement the POA Servant in C++
+```cpp
+include <iostream>
+include <corba.h>
+include "Banking_skel.h"
+
+class AccountImpl : public POA_Banking::Account {
+private:
+    float balance;
+public:
+    AccountImpl(float initial_balance) : balance(initial_balance) {}
+
+    float getBalance() override {
+        return balance;
+    }
+};
+
+int main(int argc, char* argv[]) {
+    try {
+        CORBA::ORB_var orb = CORBA::ORB_init(argc, argv);
+        CORBA::Object_var obj = orb->resolve_initial_references("RootPOA");
+        PortableServer::POA_var poa = PortableServer::POA::_narrow(obj);
+        
+        PortableServer::POAManager_var manager = poa->the_POAManager();
+        manager->activate();
+
+        // Create a servant
+        AccountImpl account(1000.0);
+        
+        // Activate servant and obtain object reference
+        PortableServer::ObjectId_var id = poa->activate_object(&account);
+        CORBA::Object_var ref = poa->id_to_reference(id);
+
+        // Write the object reference to a file
+        CORBA::String_var ior = orb->object_to_string(ref);
+        std::cout << "Object IOR: " << ior << std::endl;
+
+        orb->run(); // Start the server loop
+    } catch (const CORBA::Exception& e) {
+        std::cerr << "CORBA Exception: " << e._name() << std::endl;
+    }
+
+    return 0;
+}
+```
+
+---
+
+ Step 3: Implement the Client
+```cpp
+include <iostream>
+include <corba.h>
+include "Banking_stub.h"
+
+int main(int argc, char* argv[]) {
+    try {
+        CORBA::ORB_var orb = CORBA::ORB_init(argc, argv);
+        
+        // Convert IOR to object reference
+        CORBA::Object_var obj = orb->string_to_object("<SERVER_IOR_HERE>");
+        Banking::Account_var account = Banking::Account::_narrow(obj);
+
+        // Call remote method
+        std::cout << "Account Balance: " << account->getBalance() << std::endl;
+    } catch (const CORBA::Exception& e) {
+        std::cerr << "CORBA Exception: " << e._name() << std::endl;
+    }
+
+    return 0;
+}
+```
+
+---
+
+ 4. Exercises for Better Understanding
+ Exercise 1: Create Multiple Servants
+Modify the above example to:
+- Create multiple accounts.
+- Store them in a map (account number → servant).
+- Allow the client to retrieve the balance of a specific account.
+
+---
+
+ Exercise 2: Implement Servant Activation Policies
+Modify the POA to:
+- Use RETENTION_POLICY (PERSISTENT or TRANSIENT).
+- Test servant activation using different strategies (explicit, implicit).
+
+---
+
+ Exercise 3: Implement a Servant Locator
+- Implement Servant Manager to load objects dynamically.  
+- Instead of creating all servants at startup, load them on demand when a request arrives.  
+
+---
+
+ 5. Conclusion  
+The Portable Object Adapter (POA) provides control over how CORBA objects are managed and invoked. By practicing these exercises, you’ll gain a deeper understanding of distributed object management.  
+
+
+
+
+https://docs.oracle.com/cd/F49540_01/DOC/java.815/a64683/corba2.htm#1021300
+
+https://docs.oracle.com/cd/F49540_01/DOC/java.815/a64683/corba3.htm

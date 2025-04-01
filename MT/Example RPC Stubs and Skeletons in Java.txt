@@ -1,0 +1,116 @@
+Example: RPC Stubs in Java
+
+Let's consider a simple example of a remote banking system that provides a method to get the balance of an account.
+
+Bank Interface
+
+public interface Bank {
+    int getBalance(String accountNumber);
+}
+
+Client-side Stub (Proxy)
+
+
+public class BankProxy implements Bank {
+    private String serverAddress;
+    private int serverPort;
+
+    public BankProxy(String serverAddress, int serverPort) {
+        this.serverAddress = serverAddress;
+        this.serverPort = serverPort;
+    }
+
+    @Override
+    public int getBalance(String accountNumber) {
+        // Marshal the input parameter
+        String request = "getBalance " + accountNumber;
+
+        // Send the request to the server
+        Socket socket = new Socket(serverAddress, serverPort);
+        PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+        out.println(request);
+
+        // Receive the response from the server
+        BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        String response = in.readLine();
+
+        // Unmarshal the response
+        int balance = Integer.parseInt(response);
+
+        socket.close();
+
+        return balance;
+    }
+}
+
+Server-side Stub (Skeleton)
+
+public class BankSkeleton {
+    private Bank bank;
+
+    public BankSkeleton(Bank bank) {
+        this.bank = bank;
+    }
+
+    public void start() {
+        ServerSocket serverSocket = new ServerSocket(8000);
+        System.out.println("Server started. Listening for incoming requests...");
+
+        while (true) {
+            Socket socket = serverSocket.accept();
+            System.out.println("Incoming request from " + socket.getInetAddress());
+
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            String request = in.readLine();
+
+            // Unmarshal the input parameter
+            String[] parts = request.split(" ");
+            String accountNumber = parts[1];
+
+            // Invoke the actual remote procedure
+            int balance = bank.getBalance(accountNumber);
+
+            // Marshal the response
+            String response = String.valueOf(balance);
+
+            // Send the response back to the client
+            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+            out.println(response);
+
+            socket.close();
+        }
+    }
+}
+
+Bank Implementation
+
+public class BankImpl implements Bank {
+    @Override
+    public int getBalance(String accountNumber) {
+        // Simulate a database query
+        if (accountNumber.equals("12345")) {
+            return 1000;
+        } else {
+            return 0;
+        }
+    }
+}
+
+
+Client Code
+
+public class Client {
+    public static void main(String[] args) {
+        BankProxy bankProxy = new BankProxy("localhost", 8000);
+        int balance = bankProxy.getBalance("12345");
+        System.out.println("Balance: " + balance);
+    }
+}
+
+In this example, the client-side stub (BankProxy) marshals the input parameter (accountNumber) into a string and sends it to the server. 
+
+The server-side stub (BankSkeleton) unmarshals the input parameter, invokes the actual remote procedure (BankImpl.getBalance()), and marshals the response into a string. 
+
+The client-side stub then unmarshals the response and returns it to the client.
+
+Note that this is a highly simplified example and in a real-world scenario, you would need to handle errors, implement security measures, and add additional features such as load balancing and fault tolerance.
